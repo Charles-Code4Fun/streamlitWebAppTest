@@ -256,6 +256,18 @@ with st.sidebar:
                                   options=[None] + [f"node-{i+1}" for i in range(n_nodes)])
     tamper_prob = st.slider("Tamper probability (%) per block", 0, 100, 50)
 
+
+    # Pause / Resume
+    if "paused" not in st.session_state:
+        st.session_state["paused"] = False
+
+    def toggle_pause():
+        st.session_state["paused"] = not st.session_state["paused"]
+
+    pause_label = "▶️ Resume Auto Run" if st.session_state["paused"] else "⏸️ Pause Auto Run"
+    st.button(pause_label, on_click=toggle_pause)
+
+
 # -----------------------------
 # Initialize cluster
 if "cluster" not in st.session_state or st.session_state.get("n_nodes") != n_nodes:
@@ -271,10 +283,17 @@ if "auto_timer" not in st.session_state:
     st.session_state["auto_timer"] = 0.0
 st.session_state["auto_timer"] += REFRESH_INTERVAL / 1000.0
 
-if st.session_state["auto_timer"] >= auto_interval:
-    result = cluster.propose_block_by_client({"query_x": query_x},
-                                             malicious_node=malicious_node,
-                                             tamper_prob=tamper_prob)
+if not st.session_state["paused"]:
+    if st.session_state["auto_timer"] >= auto_interval:
+        result = cluster.propose_block_by_client(
+            {"query_x": query_x},
+            malicious_node=malicious_node,
+            tamper_prob=tamper_prob
+        )
+        if result["alert"]:
+            st.warning(result["alert"])
+        st.session_state["auto_timer"] = 0.0
+
     if result["alert"]:
         st.warning(result["alert"])
     st.session_state["auto_timer"] = 0.0
